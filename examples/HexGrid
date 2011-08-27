@@ -15,6 +15,9 @@ use SDL::Event;
 use SDL::Events;
 use Games::FrozenBubble::Stuff; # For the correct delay function
 
+use lib "./lib";
+use JGoff::Games::HexGrid::Draw;
+
 Readonly my $TARGET_ANIM_SPEED => 60;
 Readonly my %viewport => ( w => 640, h => 480, d => 24 );
 
@@ -52,175 +55,6 @@ my %color = (
   green_opaque => SDL::Video::map_RGBA( $app->format(), 0, 255, 0, 255 ),
   blue_opaque => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 ),
 );
-my @ends = (
-  [ 50, 50 ],
-  [ 100, 50 ],
-  [ 150, 50 ],
-  [ 150, 100 ],
-  [ 150, 150 ],
-  [ 100, 150 ],
-  [ 50, 150 ],
-  [ 50, 100 ]
-);
-
-# {{{ _bresenham_line( surface => $surface, x1 => $x1, .. color => $color )
-
-sub _bresenham_line {
-  my %args = @_;
-
-  my $surface = $args{surface};
-  my $x0 = $args{x0};
-  my $y0 = $args{y0};
-  my $x1 = $args{x1};
-  my $y1 = $args{y1};
-  my $color = $args{color};
-
-  my $dx = abs($x1-$x0);
-  my $dy = abs($y1-$y0);
-  my $sx = $x0 < $x1 ? 1 : -1;
-  my $sy = $y0 < $y1 ? 1 : -1;
-  my $err = $dx-$dy;
-
-  while ( 1 ) {
-    $surface->set_pixels( $x0 + $y0 * $viewport{w}, $color ); 
-    last if $x0 == $x1 and $y0 == $y1;
-    my $e2 = 2*$err;
-    if ( $e2 > -$dy ) {
-      $err = $err - $dy;
-      $x0 = $x0 + $sx;
-    }
-    if ( $e2 < $dx ) {
-      $err = $err + $dx;
-      $y0 = $y0 + $sy;
-    }
-  }
-}
-
-# }}}
-
-# {{{ _bresenham_polyline( surface => $surface, points => [ .. ], color => $color )
-
-sub _bresenham_polyline {
-  my %args = @_;
-
-  my $surface = $args{surface};
-  my @points = @{ $args{points} };
-  my $color = $args{color};
-
-  for my $idx ( 0 .. $#points - 1 ) {
-    _bresenham_line(
-      x0 => $points[$idx][0],
-      y0 => $points[$idx][1],
-      x1 => $points[$idx+1][0],
-      y1 => $points[$idx+1][1],
-      surface => $app,
-      color => $color{blue_opaque}
-    );
-  }
-}
-
-# }}}
-
-# {{{ _wu_line( surface => $surface, x1 => $x1, .. color => $color )
-
-sub _ipart { return int( $_[0] ) }
-sub _round { return _ipart( $_[0] + 0.5 ) }
-sub _fpart { return abs( $_[0] ) - int( abs( $_[0] ) ) }
-sub _rfpart { return 1 - _fpart( $_[0] ) }
-
-sub _wu_line {
-  my %args = @_;
-
-  my $surface = $args{surface};
-  my $x0 = $args{x0};
-  my $y0 = $args{y0};
-  my $x1 = $args{x1};
-  my $y1 = $args{y1};
-  my $color = $args{color};
-
-  my $dx = $x1 - $x0;
-  my $dy = $y1 - $y0;
-
-  my $plot_reversed;
-  if ( abs( $dx ) < abs( $dy ) ) {
-    $plot_reversed = 1;
-  }
-
-  if ( abs( $dx ) < abs( $dy ) ) {
-    ( $x0, $y0 ) = ( $y0, $x0 ); #swap x0, y0
-    ( $x1, $y1 ) = ( $y1, $x1 ); #swap x1, y1
-    ( $dx, $dy ) = ( $dy, $dx ); #swap dx, dy
-  }
-  if ( $x1 < $x0 ) {
-    ( $x0, $x1 ) = ( $x1, $x0 ); #swap x0, x1
-    ( $y0, $y1 ) = ( $y1, $y0 ); #swap y0, y1
-  }
-  my $gradient = $dy / $dx;
-    
-  # handle first endpoint
-  my $xend = _round( $x0 );
-  my $yend = $y0 + $gradient * ( $xend - $x0 );
-  my $xgap = _rfpart( $x0 + 0.5 );
-  my $xpxl1 = $xend;  # this will be used in the main loop
-  my $ypxl1 = _ipart( $yend );
-my $aopaque = ( _rfpart($yend) * $xgap ) * 256;
-my $bopaque = ( _fpart($yend) * $xgap ) * 256;
-my $acolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $aopaque );
-my $bcolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $bopaque );
-#   plot($xpxl1, $ypxl1, _rfpart($yend) * $xgap);
-#   plot($xpxl1, $ypxl1 + 1, _fpart($yend) * $xgap);
-  if ( $plot_reversed ) {
-    $surface->set_pixels( $ypxl1 + $xpxl1 * $viewport{w}, $acolor ); 
-    $surface->set_pixels( ( $ypxl1 + 1 ) + $xpxl1 * $viewport{w}, $bcolor ); 
-  }
-  else {
-    $surface->set_pixels( $xpxl1 + $ypxl1 * $viewport{w}, $acolor ); 
-    $surface->set_pixels( $xpxl1 + ( $ypxl1 + 1 ) * $viewport{w}, $bcolor ); 
-  }
-  my $intery = $yend + $gradient; # first y-intersection for the main loop
-    
-  # handle second endpoint
-  $xend = _round( $x1 );
-  $yend = $y1 + $gradient * ( $xend - $x1 );
-  $xgap = _fpart( $x1 + 0.5 );
-  my $xpxl2 = $xend; # this will be used in the main loop
-  my $ypxl2 = _ipart ( $yend );
-$aopaque = ( _rfpart($yend) * $xgap ) * 256;
-$bopaque = ( _fpart($yend) * $xgap ) * 256;
-$acolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $aopaque );
-$bcolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $bopaque );
-#  plot ($xpxl2, $ypxl2, _rfpart ($yend) * $xgap);
-#  plot ($xpxl2, $ypxl2 + 1, _fpart ($yend) * $xgap);
-  if ( $plot_reversed ) {
-    $surface->set_pixels( $ypxl2 + $xpxl2 * $viewport{w}, $acolor ); 
-    $surface->set_pixels( ( $ypxl2 + 1) + $xpxl2 * $viewport{w}, $acolor ); 
-  }
-  else {
-    $surface->set_pixels( $xpxl2 + $ypxl2 * $viewport{w}, $acolor ); 
-    $surface->set_pixels( $xpxl2 + ( $ypxl2 + 1 ) * $viewport{w}, $bcolor ); 
-  }
-    
-  # main loop
-  for my $x ( $xpxl1 + 1 .. $xpxl2 - 1 ) {
-$aopaque = _rfpart($intery) * 256;
-$bopaque = _fpart($intery) * 256;
-$acolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $aopaque );
-$bcolor = SDL::Video::map_RGBA( $app->format(), 0, 0, 255, $bopaque );
-#    plot ($x, _ipart ($intery), _rfpart ($intery))
-#    plot ($x, _ipart ($intery) + 1, _fpart ($intery))
-    if ( $plot_reversed ) {
-      $surface->set_pixels( _ipart ( $intery ) + $x * $viewport{w}, $acolor ); 
-      $surface->set_pixels( ( _ipart ( $intery ) + 1 ) + $x * $viewport{w}, $bcolor ); 
-    }
-    else {
-      $surface->set_pixels( $x + _ipart ( $intery ) * $viewport{w}, $acolor ); 
-      $surface->set_pixels( $x + ( _ipart ( $intery ) + 1 ) * $viewport{w}, $bcolor ); 
-    }
-    $intery = $intery + $gradient;
-  }
-}
-
-# }}}
 
 # {{{ erase_image
 
@@ -228,7 +62,7 @@ sub erase_image {
   SDL::Video::fill_rect(
     $app,
     SDL::Rect->new(
-      0, 0, $viewport{w}, $viewport{h},
+      0, 0, $app->w, $app->h,
     ),
     $color{black_opaque}
   );
@@ -252,193 +86,17 @@ sub update_game {
 # {{{ put_image
 
 sub put_image {
-  my @origin = ( 20, 20 );
-  my @cells = ( 10, 10 );
-  my @width = ( 40, 40 );
-  
-  #   +
-  #  / \
-  # +   +
-
-  my @top_border =
-    (
-      [
-        $origin[0],
-        $width[1] * 0.25 + $origin[1],
-      ]
-    );
-  for my $x ( 0 .. $cells[0] - 1 ) {
-    push @top_border, (
-      [
-        $x * $width[0] + $width[0] * 0.5 + $origin[0],
-        $origin[1],
-      ],
-      [
-        ( $x + 1 ) * $width[0] + $origin[0],
-        $width[1] * 0.25 + $origin[1],
-      ]
-    );
-  }
-
-  # +   +
-  #  \ /
-  #   +
-
-  my @bottom_border = ();
-  for my $x ( 0 .. $cells[0] - 1 ) {
-    push @bottom_border, (
-      [
-        $x * $width[0] + $width [0] * 0.5 + $origin[0],
-        ( $cells[1] * $width[1] * 0.75 ) + $origin[1],
-      ],
-      [
-        ( $x + 1 ) * $width[0] + $origin[0],
-        ( $cells[1] * $width[1] * 0.75 ) + $width[1] * 0.25 + $origin[1],
-      ],
-    );
-  }
-
-  # +
-  # |
-  # +
-  #  \
-  #   +
-  #   |
-  #   +
-  #  /
-  # +
-
-  my @right_border = (
+  my $ghd = JGoff::Games::HexGrid::Draw->new(
+    origin => [ 20, 20 ],
+    cells => [ 10, 10 ],
+    width => [ 40, 40 ]
   );
+  $ghd->draw( surface => $app, color => $color{blue_opaque} );
 
-  for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
-    push @right_border, (
-      [
-        $cells[0] * $width[0] + $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 0.25 + $origin[1],
-      ],
-      [
-        $cells[0] * $width[0] + $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 0.75 + $origin[1],
-      ],
-      [
-        $cells[0] * $width[0] + $width[0] * 0.5 + $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] + $origin[1],
-      ],
-      [
-        $cells[0] * $width[0] + $width[0] * 0.5 + $origin[0],
-        ( ( $y + 1 ) * $width[1] * 1.5 ) + $origin[1],
-      ],
-      [
-        $cells[0] * $width[0] + $origin[0],
-        ( ( $y + 1 ) * $width[1] * 1.5 ) + $width[1] * 0.25 + $origin[1],
-      ],
-    )
-  }
-
-  my @left_border = (
+  my $margin = 20;
+  my $drect = SDL::Rect->new(
+    $margin, $margin, $app->w - $margin, $app->h - $margin
   );
-
-  for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
-    push @left_border, (
-      [
-        $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 0.25 + $origin[1],
-      ],
-      [
-        $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 0.75 + $origin[1],
-      ],
-      [
-        $width[0] * 0.5 + $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] + $origin[1],
-      ],
-      [
-        $width[0] * 0.5 + $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 1.5 + $origin[1],
-      ],
-      [
-        $origin[0],
-        ( $y * $width[1] * 1.5 ) + $width[1] * 1.75 + $origin[1],
-      ],
-    )
-  }
-  pop @left_border;
-
-  #   +
-  #  / \
-  # +    +
-  # |    |
-  # +    +
-  #     / \
-  #    +   +
-  #        |
-  #        +
-
-  for my $x ( 0 .. $cells[0] - 1 ) {
-    for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
-      my @points = (
-        [
-          ( ( $x + 1 ) * $width[0] ) + $origin[0],
-          ( $y * $width[1] * 1.5 ) + $width[1] * 0.25 + $origin[1]
-        ],
-        [
-          ( ( $x + 1 ) * $width[0] ) + $origin[0],
-          ( $y * $width[1] * 1.5 ) + $width[1] * 0.75 + $origin[1]
-        ],
-        [
-          ( $x * $width[0] ) + $width[0] * 0.5 + $origin[0],
-          ( $y * $width[1] * 1.5 ) + $width[1] + $origin[1]
-        ],
-      );
-      _bresenham_polyline(
-        points => \@points,
-        surface => $app,
-        color => $color{blue_opaque}
-      );
-      @points = (
-        [
-          ( ( $x + 1 ) * $width[0] ) + $origin[0],
-          ( $y * $width[1] * 1.5 ) + $width[1] * 0.75 + $origin[1]
-        ],
-        [
-          ( $x * $width[0] ) + $width[0] * 1.5 + $origin[0],
-          ( $y * $width[1] * 1.5 ) + $width[1] + $origin[1]
-        ],
-        [
-          ( $x * $width[0] ) + $width[0] * 1.5 + $origin[0],
-          ( ( $y + 1 ) * $width[1] * 1.5 ) + $origin[1]
-        ],
-        [
-          ( $x * $width[0] ) + $width[0] + $origin[0],
-          ( ( $y + 1 ) * $width[1] * 1.5 ) + $width[1] * 0.25 + $origin[1]
-        ],
-        [
-          ( $x * $width[0] ) + $width[0] * 0.5 + $origin[0],
-          ( ( $y + 1 ) * $width[1] * 1.5 ) + $origin[1]
-        ],
-      );
-      _bresenham_polyline(
-        points => \@points,
-        surface => $app,
-        color => $color{blue_opaque}
-      );
-    }
-  }
-
-  _bresenham_polyline(
-    points => \@top_border,
-    surface => $app,
-    color => $color{blue_opaque}
-  );
-
-  _bresenham_polyline(
-    points => \@left_border,
-    surface => $app,
-    color => $color{blue_opaque}
-  );
-
-  my $drect = SDL::Rect->new( 20, 20, $viewport{w} - 20, $viewport{h} - 20 );
   push @update_rects, $drect;
 }
 

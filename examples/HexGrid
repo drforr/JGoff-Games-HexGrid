@@ -20,6 +20,7 @@ use JGoff::Games::HexGrid::Draw;
 
 Readonly my $TARGET_ANIM_SPEED => 60;
 Readonly my %viewport => ( w => 640, h => 480, d => 24 );
+Readonly my %world => ( w => 1024, h => 768, d => 24 );
 
 my $frame = 0;
 my $sdl_flags =
@@ -28,7 +29,7 @@ my $sdl_flags =
   SDL_HWACCEL |
   SDL_ASYNCBLIT;
 my @update_rects;
-my $app;
+my ( $app, $background );
 my $event = SDL::Event->new;
 
 # {{{ Initialization
@@ -38,11 +39,17 @@ try {
   $app = SDL::Video::set_video_mode(
     $viewport{w}, $viewport{h}, $viewport{d}, 0, $sdl_flags
   );
+  $background = SDL::Surface->new(
+    $sdl_flags, $world{w}, $world{h}, $world{d}
+  );
 }
 catch {
   warn "Falling back to software surface";
   $app = SDL::Video::set_video_mode(
     $viewport{w}, $viewport{h}, $viewport{d}, SDL_SWSURFACE
+  );
+  $background = SDL::Surface->new(
+    SDL_SWSURFACE, $world{w}, $world{h}, $world{d}, 0
   );
 };
 SDL::Events::enable_unicode(1);
@@ -56,16 +63,38 @@ my %color = (
   blue_opaque => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 ),
 );
 
+my $ghd = JGoff::Games::HexGrid::Draw->new(
+  origin => [ 20, 20 ],
+  cells => [ 15, 10 ],
+  width => [ 40, 40 ]
+);
+SDL::Video::fill_rect(
+  $background,
+  SDL::Rect->new(
+    0, 0, $background->w, $background->h,
+  ),
+  $color{black_opaque}
+);
+$ghd->draw( surface => $background, color => $color{blue_opaque} );
+$ghd->draw( surface => $app, color => $color{blue_opaque} );
+
 # {{{ erase_image
 
 sub erase_image {
-  SDL::Video::fill_rect(
-    $app,
-    SDL::Rect->new(
-      0, 0, $app->w, $app->h,
-    ),
-    $color{black_opaque}
-  );
+#  SDL::Video::blit_surface(
+#    $background, SDL::Rect->new( 0, 0, $app->w, $app->h ),
+#    $app, SDL::Rect->new( 0, 0, $app->w, $app->h )
+#  );
+#$ghd->draw( surface => $app, color => $color{blue_opaque} );
+  SDL::Video::update_rect( $app, 0, 0, $app->w, $app->h );
+#  SDL::Video::fill_rect(
+#    $app,
+#    SDL::Rect->new(
+#      0, 0, $app->w, $app->h,
+#    ),
+#    $color{black_opaque}
+#  );
+#$ghd->draw( surface => $app, color => $color{blue_opaque} );
 }
 
 # }}}
@@ -86,16 +115,17 @@ sub update_game {
 # {{{ put_image
 
 sub put_image {
-  my $ghd = JGoff::Games::HexGrid::Draw->new(
-    origin => [ 20, 20 ],
-    cells => [ 10, 10 ],
-    width => [ 40, 40 ]
-  );
-  $ghd->draw( surface => $app, color => $color{blue_opaque} );
+#  my $ghd = JGoff::Games::HexGrid::Draw->new(
+#    origin => [ 20, 20 ],
+#    cells => [ 15, 10 ],
+#    width => [ 40, 40 ]
+#  );
+#  $ghd->draw( surface => $app, color => $color{blue_opaque} );
 
   my $margin = 20;
   my $drect = SDL::Rect->new(
-    $margin, $margin, $app->w - $margin, $app->h - $margin
+#    $margin, $margin, $app->w - $margin, $app->h - $margin
+0,0,640,480
   );
   push @update_rects, $drect;
 }

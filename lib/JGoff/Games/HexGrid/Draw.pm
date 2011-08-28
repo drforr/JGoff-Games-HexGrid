@@ -12,7 +12,7 @@ sub draw {
   my $self = shift;
   my %args = @_;
 
-  my $app = $args{surface};
+  my $surface = $args{surface};
   my $color = $args{color};
 
   my @origin = @{ $self->origin };
@@ -74,7 +74,7 @@ sub draw {
   my @right_border = (
   );
 
-  for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
+  for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
     push @right_border, (
       [
         $cells[0] * $width[0] + $origin[0],
@@ -102,7 +102,7 @@ sub draw {
   my @left_border = (
   );
 
-  for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
+  for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
     push @left_border, (
       [
         $origin[0],
@@ -139,7 +139,7 @@ sub draw {
   #        +
 
   for my $x ( 0 .. $cells[0] - 1 ) {
-    for my $y ( 0 .. int( ( $cells[0] - 1 ) / 2 ) ) {
+    for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
       my @points = (
         [
           ( ( $x + 1 ) * $width[0] ) + $origin[0],
@@ -156,7 +156,7 @@ sub draw {
       );
       $self->_bresenham_polyline(
         points => \@points,
-        surface => $app,
+        surface => $surface,
         color => $color
       );
       @points = (
@@ -183,7 +183,7 @@ sub draw {
       );
       $self->_bresenham_polyline(
         points => \@points,
-        surface => $app,
+        surface => $surface,
         color => $color
       );
     }
@@ -191,13 +191,13 @@ sub draw {
 
   $self->_bresenham_polyline(
     points => \@top_border,
-    surface => $app,
+    surface => $surface,
     color => $color
   );
 
   $self->_bresenham_polyline(
     points => \@left_border,
-    surface => $app,
+    surface => $surface,
     color => $color
   );
 }

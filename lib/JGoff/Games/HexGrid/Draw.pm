@@ -1,9 +1,41 @@
 package JGoff::Games::HexGrid::Draw;
 
+use SDL; # XXX Excise later
+use Carp qw(croak );
+
 use Moose;
 extends 'JGoff::Games::HexGrid';
 
-# {{{ draw_bounding_box
+# {{{ tile_surface( color => $color, depth => $depth )
+
+sub tile_surface {
+  my $self = shift;
+  my %args = @_;
+
+  my $color = $args{color};
+  my $depth = $args{depth};
+
+  my @bounding_box = $self->_bounding_box( coordinate => [ 0, 0 ] );
+  my $tile = SDL::Surface->new(
+    0, $bounding_box[2], $bounding_box[3], $depth, 0
+  );
+  SDL::Video::fill_rect(
+    $tile,
+    SDL::Rect->new( 0, 0, $tile->w, $tile->h ),
+    SDL::Video::map_RGBA( $tile->format(), 0, 0, 0, 0 ),
+  );
+  my $mapped = SDL::Video::map_RGBA( $tile->format(), @$color );
+  $self->fill_hexagon(
+    coordinate => [ 0, 0 ],
+    surface => $tile,
+    color => $mapped
+  );
+  return $tile;
+}
+
+# }}}
+
+# {{{ draw_bounding_box( coordinate => .., surface => .., color => .. )
 
 sub draw_bounding_box {
   my $self = shift;
@@ -19,9 +51,10 @@ sub draw_bounding_box {
   $self->_bresenham_polygon(
     points => [
       [ $bounding_box[0], $bounding_box[1] ],
-      [ $bounding_box[2], $bounding_box[1] ],
-      [ $bounding_box[2], $bounding_box[3] ],
-      [ $bounding_box[0], $bounding_box[3] ]
+      [ $bounding_box[0] + $bounding_box[2], $bounding_box[1] ],
+      [ $bounding_box[0] + $bounding_box[2],
+        $bounding_box[1] + $bounding_box[3] ],
+      [ $bounding_box[0], $bounding_box[1] + $bounding_box[3] ]
     ],
     surface => $surface,
     color => $color
@@ -30,7 +63,7 @@ sub draw_bounding_box {
 
 # }}}
 
-# {{{ draw_hexagon
+# {{{ draw_hexagon( coordinate => .., surface => .., color => .. )
 
 sub draw_hexagon {
   my $self = shift;
@@ -63,29 +96,21 @@ sub _point_in_poly {
 
   my ( $i, $j, $c ); $c = 0;
   for ( $i = 0, $j = $#polygon; $i < $#polygon ; $j = $i++ ) {
-    if ( ( ( $polygon[$i][1] > $point[1] ) != ( $polygon[$j][1] > $point[1] ) ) &&
-	 ( $point[0] < ( $polygon[$j][0] - $polygon[$i][0] ) * ( $point[1] - $polygon[$i][1] ) / ( $polygon[$j][1] - $polygon[$i][1] ) + $polygon[$i][0] ) ) {
+    if ( ( ( $polygon[$i][1] > $point[1] ) !=
+           ( $polygon[$j][1] > $point[1] ) ) &&
+	 ( $point[0] < ( $polygon[$j][0] - $polygon[$i][0] ) *
+                       ( $point[1] - $polygon[$i][1] ) /
+                       ( $polygon[$j][1] - $polygon[$i][1] ) + $polygon[$i][0] ) ) {
       $c = $c == 0 ? 1 : 0;
     }
   }
 
   return $c == 1 ? 1 : undef;
-
-#int pnpoly(int nvert, float *vertx, float *verty, float testx, float testy)
-#{
-#  for (i = 0, j = nvert-1; i < nvert; j = i++) {
-#    if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-#	 (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-#       c = !c;
-#  }
-#  return c;
-#}
-
 }
 
 # }}}
 
-# {{{ fill_hexagon
+# {{{ fill_hexagon( coordinate => .., surface => .., color => .. )
 
 sub fill_hexagon {
   my $self = shift;
@@ -100,8 +125,8 @@ sub fill_hexagon {
   my @hexagon = $self->_hexagon( coordinate => \@coordinate );
   return unless @hexagon;
 
-  for my $x ( $bounding_box[0] .. $bounding_box[2] ) {
-    for my $y ( $bounding_box[1] .. $bounding_box[3] ) {
+  for my $x ( $bounding_box[0] .. $bounding_box[0] + $bounding_box[2] ) {
+    for my $y ( $bounding_box[1] .. $bounding_box[1] + $bounding_box[3] ) {
       next unless $self->_point_in_poly(
         polygon => \@hexagon,
         point => [ $x, $y ]
@@ -113,7 +138,7 @@ sub fill_hexagon {
 
 # }}}
 
-# {{{ draw_actor
+# {{{ draw_actor( coordinate => .., surface => .., color => .. )
 
 sub draw_actor {
   my $self = shift;
@@ -472,22 +497,22 @@ sub _bresenham_line {
   my $y1 = $args{y1};
   my $color = $args{color};
 
-  die "*** Starting X left of surface!" unless
+  croak "*** Starting X left of surface!" unless
     $x0 >= 0;
-  die "*** Starting X right of surface!" unless
+  croak "*** Starting X right of surface!" unless
     $x0 < $surface->w;
-  die "*** Starting Y above surface!" unless
+  croak "*** Starting Y above surface!" unless
     $y0 >= 0;
-  die "*** Starting Y below surface!" unless
+  croak "*** Starting Y below surface!" unless
     $y0 < $surface->h;
 
-  die "*** Ending X left of surface!" unless
+  croak "*** Ending X left of surface!" unless
     $x1 >= 0;
-  die "*** Ending X right of surface!" unless
+  croak "*** Ending X right of surface!" unless
     $x1 < $surface->w;
-  die "*** Ending Y above surface!" unless
+  croak "*** Ending Y above surface!" unless
     $y1 >= 0;
-  die "*** Ending Y below surface!" unless
+  croak "*** Ending Y below surface!" unless
     $y1 < $surface->h;
 
   my $dx = abs( $x1 - $x0 );

@@ -50,6 +50,39 @@ my $ghd = JGoff::Games::HexGrid::Draw->new(
                       # 24*40*0.75+5 = 725 < 768
 );
 
+# {{{ terrain
+
+my @terrain = (
+   #                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 
+   #   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
+  [qw( . . . . . : : : : | | | : : : : : : . . . . . . )],
+  [qw( . . . : : : : | | | | | | | | : : . . . . . . . )],
+  [qw( . . : : : | | | | | | | | | : : . . : : : : . . )],
+  [qw( . : : : | | | | | | | | : : . . . : : | | : : . )],
+  [qw( . : : : : : : : : : : : : . . . . . . . . . . . )],
+  [qw( : : : / / / / / : : . . . . . . . . . . . . . . )],
+  [qw( . . : : v v v : : : . . . . . . . . . . . . . . )],
+  [qw( . . : : / / / / : : . . . . . . . . . . . . . . )],
+  [qw( . . . / / / / / / : . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )]
+);
+
+# }}}
+
 #
 # Create the hex-grid background
 #
@@ -66,6 +99,45 @@ SDL::Video::fill_rect(
 $ghd->draw(
   surface => $background,
   color => SDL::Video::map_RGBA( $background->format(), 0, 0, 255, 255 ),
+);
+
+my $alpha = 255;
+my %color_code = (
+  '.' => [ 0, 0, 255, $alpha ],
+  ':' => [ 0, 255, 0, $alpha ],
+  '|' => [ 205, 133, 63, $alpha ],
+  '/' => [ 192, 192, 192, $alpha ],
+  'v' => [ 64, 64, 64, $alpha ],
+);
+
+my %tile;
+
+for ( keys %color_code ) {
+  $tile{$_} = $ghd->tile_surface(
+    depth => $world{d},
+    color => $color_code{$_}
+  );
+}
+my $tile_rect = SDL::Rect->new( 0, 0, $tile{'.'}->w, $tile{'.'}->h );
+
+for my $x ( 0 .. 23 ) {
+  for my $y ( 0 .. 23 ) {
+    my @bounding_box = $ghd->_bounding_box( coordinate => [ $x, $y ] );
+    SDL::Video::blit_surface(
+      $tile{$terrain[$x][$y]}, $tile_rect,
+      $background,
+      SDL::Rect->new( @bounding_box ),
+    );
+#last;
+  }
+#last;
+}
+
+#
+# Create action layer
+#
+my $action = SDL::Surface->new(
+  0, $world{w}, $world{h}, $world{d}, 0
 );
 
 # {{{ erase_image
@@ -109,8 +181,7 @@ sub update_game {
 @viewport_velocity = ( 0, 0 );
         $actor[0]--
       }
-      else {
-#die "[".$event->key_sym."]\n";
+      elsif ( $event->key_sym == ord( "\e" ) ) {
         die "normal exit";
       }
     }
@@ -126,32 +197,28 @@ sub update_game {
 # {{{ put_image
 
 sub put_image {
-  $ghd->draw_actor(
-    coordinate => \@actor,
-    surface => $app,
-    color => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 )
-  );
   $ghd->draw_bounding_box(
     coordinate => \@actor,
     surface => $app,
-    color => SDL::Video::map_RGBA( $app->format(), 0, 255, 0, 255 )
-  );
-  $ghd->draw_hexagon(
-    coordinate => \@actor,
-    surface => $app,
     color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
   );
-  $ghd->fill_hexagon(
+#  $ghd->draw_hexagon(
+#    coordinate => \@actor,
+#    surface => $app,
+#    color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
+#  );
+#  $ghd->fill_hexagon(
+#    coordinate => \@actor,
+#    surface => $app,
+#    color => SDL::Video::map_RGBA( $action->format(), 255, 0, 0, 127 )
+#  );
+  $ghd->draw_actor(
     coordinate => \@actor,
     surface => $app,
-    color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
+    color => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 127 )
   );
 
-  my $margin = 5;
-  my $drect = SDL::Rect->new(
-    $margin, $margin, $app->w - $margin, $app->h - $margin
-  );
-  push @update_rects, $drect;
+  push @update_rects, SDL::Rect->new( 0, 0, $app->w, $app->h );
 }
 
 # }}}

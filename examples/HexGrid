@@ -44,13 +44,6 @@ $background = SDL::Surface->new(
 );
 SDL::Events::enable_unicode(1);
 
-my %color = (
-  black_opaque => SDL::Video::map_RGBA( $app->format(), 0, 0, 0, 255 ),
-  red_opaque => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 ),
-  green_opaque => SDL::Video::map_RGBA( $app->format(), 0, 255, 0, 255 ),
-  blue_opaque => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 ),
-);
-
 my $ghd = JGoff::Games::HexGrid::Draw->new(
   origin => [ 20, 20 ],
   cells => [ 15, 10 ],
@@ -61,7 +54,7 @@ SDL::Video::fill_rect(
   SDL::Rect->new(
     0, 0, $background->w, $background->h,
   ),
-  $color{black_opaque}
+  SDL::Video::map_RGBA( $background->format(), 0, 0, 0, 255 ),
 );
 $ghd->draw(
   surface => $background,
@@ -72,8 +65,8 @@ $ghd->draw(
 
 sub erase_image {
   SDL::Video::blit_surface(
-    $background, SDL::Rect->new( 0, 0, 640, 480 ),
-    $app, SDL::Rect->new( 0, 0, 640, 480 )
+    $background, SDL::Rect->new( 0, 0, $app->w, $app->h ),
+    $app, SDL::Rect->new( 0, 0, $app->w, $app->h )
   );
 }
 
@@ -123,7 +116,7 @@ sub put_image {
   $ghd->draw_actor(
     coordinate => \@actor,
     surface => $app,
-    color => $color{blue_opaque}
+    color => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 )
   );
 
   my $margin = 20;

@@ -6,6 +6,49 @@ has origin => ( is => 'rw', isa => 'ArrayRef' );
 has cells => ( is => 'rw', isa => 'ArrayRef' );
 has width => ( is => 'rw', isa => 'ArrayRef' );
 
+# {{{ draw_actor
+
+sub draw_actor {
+  my $self = shift;
+  my %args = @_;
+
+  my @coordinate = @{ $args{coordinate} };
+  my $surface = $args{surface};
+  my $color = $args{color};
+
+  return if $coordinate[0] > $self->cells->[0];
+  return if $coordinate[1] > $self->cells->[1];
+
+  my @center = (
+    $coordinate[0] * $self->width->[0] +
+    $self->width->[0] * 0.5 +
+    $self->origin->[0],
+    $coordinate[1] * $self->width->[1] * 0.75 +
+    $self->width->[1] * 0.5 +
+    $self->origin->[1]
+  );
+  $center[0] += $self->width->[0] * 0.5 if $coordinate[1] % 2;
+
+  $self->_bresenham_line(
+    x0 => $center[0] - 4,
+    y0 => $center[1],
+    x1 => $center[0] + 4,
+    y1 => $center[1],
+    surface => $surface,
+    color => $color,
+  );
+  $self->_bresenham_line(
+    x0 => $center[0],
+    y0 => $center[1] - 4,
+    x1 => $center[0],
+    y1 => $center[1] + 4,
+    surface => $surface,
+    color => $color,
+  );
+}
+
+# }}}
+
 # {{{ draw( surface => $surface, color => $color, viewport => $vp )
 
 sub draw {
@@ -319,8 +362,8 @@ sub _bresenham_line {
   my $y1 = $args{y1};
   my $color = $args{color};
 
-  my $dx = abs($x1-$x0);
-  my $dy = abs($y1-$y0);
+  my $dx = abs( $x1 - $x0 );
+  my $dy = abs( $y1 - $y0 );
   my $sx = $x0 < $x1 ? 1 : -1;
   my $sy = $y0 < $y1 ? 1 : -1;
   my $err = $dx-$dy;

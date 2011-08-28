@@ -362,6 +362,24 @@ sub _bresenham_line {
   my $y1 = $args{y1};
   my $color = $args{color};
 
+  die "*** Starting X left of surface!" unless
+    $x0 >= 0;
+  die "*** Starting X right of surface!" unless
+    $x0 < $surface->w;
+  die "*** Starting Y above surface!" unless
+    $y0 >= 0;
+  die "*** Starting Y below surface!" unless
+    $y0 < $surface->h;
+
+  die "*** Ending X left of surface!" unless
+    $x1 >= 0;
+  die "*** Ending X right of surface!" unless
+    $x1 < $surface->w;
+  die "*** Ending Y above surface!" unless
+    $y1 >= 0;
+  die "*** Ending Y below surface!" unless
+    $y1 < $surface->h;
+
   my $dx = abs( $x1 - $x0 );
   my $dy = abs( $y1 - $y0 );
   my $sx = $x0 < $x1 ? 1 : -1;

@@ -45,7 +45,7 @@ SDL::Events::enable_unicode(1);
 
 my $ghd = JGoff::Games::HexGrid::Draw->new(
   origin => [ 5, 5 ],
-  width => [ 40, 40 ],
+  cell_size => [ 40, 40 ],
   cells => [ 24, 24 ] # 24*40+5 = 1005 < 1024
                       # 24*40*0.75+5 = 725 < 768
 );
@@ -130,6 +130,21 @@ sub put_image {
     coordinate => \@actor,
     surface => $app,
     color => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 255 )
+  );
+  $ghd->draw_bounding_box(
+    coordinate => \@actor,
+    surface => $app,
+    color => SDL::Video::map_RGBA( $app->format(), 0, 255, 0, 255 )
+  );
+  $ghd->draw_hexagon(
+    coordinate => \@actor,
+    surface => $app,
+    color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
+  );
+  $ghd->fill_hexagon(
+    coordinate => \@actor,
+    surface => $app,
+    color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
   );
 
   my $margin = 5;

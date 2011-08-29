@@ -17,13 +17,11 @@ use Games::FrozenBubble::Stuff; # For the correct delay function
 
 use lib "./lib";
 use JGoff::Games::HexGrid::Draw;
+use JGoff::Games::HexGrid::Viewport;
 
-Readonly my $TARGET_ANIM_SPEED => 60;
 Readonly my %viewport => ( w => 640, h => 480, d => 32 );
 Readonly my %world => ( w => 1024, h => 768, d => 32 );
-
-my @viewport_origin = ( 0, 0 );
-my @viewport_velocity = ( 0, 0 );
+Readonly my $TARGET_ANIM_SPEED => 60;
 
 my $frame = 0;
 my $sdl_flags =
@@ -34,8 +32,6 @@ my $sdl_flags =
 my @update_rects;
 my $event = SDL::Event->new;
 
-my @actor = ( 0, 0 );
-
 SDL::init(SDL_INIT_EVERYTHING);
 
 my $app = SDL::Video::set_video_mode(
@@ -43,11 +39,26 @@ my $app = SDL::Video::set_video_mode(
 );
 SDL::Events::enable_unicode(1);
 
+my @cell_size = ( 40, 40 );
+my @cells = ( 24, 24 ); # 24*40+5 = 1005 < 1024
+                        # 24*40*0.75+5 = 725 < 768
+my $vp = JGoff::Games::HexGrid::Viewport->new(
+  world => [ 24, 24 ],
+  viewport => [ 0, 0, 15, 15 ]
+);
+$vp->center;
+#use YAML;die Dump($vp);
 my $ghd = JGoff::Games::HexGrid::Draw->new(
-  origin => [ 5, 5 ],
-  cell_size => [ 40, 40 ],
-  cells => [ 24, 24 ] # 24*40+5 = 1005 < 1024
-                      # 24*40*0.75+5 = 725 < 768
+  cell_size => \@cell_size,
+  cells => \@cells
+);
+
+#
+# Center the actor in the viewport
+#
+my @actor = (
+  $vp->cursor->[0],
+  $vp->cursor->[1],
 );
 
 # {{{ terrain
@@ -63,12 +74,12 @@ my @terrain = (
   [qw( : : : / / / / / : : . . . . . . . . . . . . . . )],
   [qw( . . : : v v v : : : . . . . . . . . . . . . . . )],
   [qw( . . : : / / / / : : . . . . . . . . . . . . . . )],
-  [qw( . . . / / / / / / : . . . . . . . . . . . . . . )],
-  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
-  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
-  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
-  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
-  [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
+  [qw( / . . / / / / / / : . . . . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . . / / . . . . . . . . . . . )],
+  [qw( . . . . . . . . . . / / / . . . . . . . . . . . )],
+  [qw( . . . / / . . . . . / / . . . . . . . . . . . . )],
+  [qw( . . / v / . . . . . . . . . . . . . . . . . . . )],
+  [qw( . . / / . . . . . . . . . . . . . . . . . . . . )],
   [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
   [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
   [qw( . . . . . . . . . . . . . . . . . . . . . . . . )],
@@ -101,6 +112,8 @@ $ghd->draw(
   color => SDL::Video::map_RGBA( $background->format(), 0, 0, 255, 255 ),
 );
 
+# {{{ Color code for terrain
+
 my $alpha = 255;
 my %color_code = (
   '.' => [ 0, 0, 255, $alpha ],
@@ -109,6 +122,8 @@ my %color_code = (
   '/' => [ 192, 192, 192, $alpha ],
   'v' => [ 64, 64, 64, $alpha ],
 );
+
+# }}}
 
 my %tile;
 
@@ -120,18 +135,20 @@ for ( keys %color_code ) {
 }
 my $tile_rect = SDL::Rect->new( 0, 0, $tile{'.'}->w, $tile{'.'}->h );
 
-for my $x ( 0 .. 23 ) {
-  for my $y ( 0 .. 23 ) {
+# {{{ blit in grid cells
+
+for my $x ( 0 .. $cells[0] - 1 ) {
+  for my $y ( 0 .. $cells[1] - 1 ) {
     my @bounding_box = $ghd->_bounding_box( coordinate => [ $x, $y ] );
     SDL::Video::blit_surface(
       $tile{$terrain[$x][$y]}, $tile_rect,
       $background,
       SDL::Rect->new( @bounding_box ),
     );
-#last;
   }
-#last;
 }
+
+# }}}
 
 #
 # Create action layer
@@ -143,8 +160,11 @@ my $action = SDL::Surface->new(
 # {{{ erase_image
 
 sub erase_image {
+  my $x = $vp->viewport->[0] * $cell_size[0];
+  my $y = $vp->viewport->[1] * $cell_size[1] * 0.75;
+  $x += $cell_size[0] / 2 if $vp->viewport->[1] % 2;
   SDL::Video::blit_surface(
-    $background, SDL::Rect->new( @viewport_origin, $app->w, $app->h ),
+    $background, SDL::Rect->new( $x, $y, $app->w, $app->h ),
     $app, SDL::Rect->new( 0, 0, $app->w, $app->h )
   );
 }
@@ -154,41 +174,24 @@ sub erase_image {
 # {{{ update_game
 
 sub update_game {
+  my %direction = (
+    o => 0,
+    l => 1,
+    ',' => 2,
+    m => 3,
+    j => 4,
+    i => 5
+  );
   SDL::Events::pump_events();
   if ( SDL::Events::poll_event($event) ) {
     if ( $event->type == SDL_KEYDOWN ) {
-      if ( $event->key_sym == ord( 'i' ) ) {
-        $actor[0]-- unless $actor[1] % 2;
-        $actor[1]--
-      }
-      elsif ( $event->key_sym == ord( 'o' ) ) {
-        $actor[0]++ if $actor[1] % 2;
-        $actor[1]--
-      }
-      elsif ( $event->key_sym == ord( 'l' ) ) {
-@viewport_velocity = ( 7/20, 0 ); # 1 column every 20 ticks
-        $actor[0]++
-      }
-      elsif ( $event->key_sym == ord( ',' ) ) {
-        $actor[0]++ if $actor[1] % 2;
-        $actor[1]++
-      }
-      elsif ( $event->key_sym == ord( 'm' ) ) {
-        $actor[0]-- unless $actor[1] % 2;
-        $actor[1]++
-      }
-      elsif ( $event->key_sym == ord( 'j' ) ) {
-@viewport_velocity = ( 0, 0 );
-        $actor[0]--
+      if ( exists $direction{chr( $event->key_sym )} ) {
+        $vp->move( direction => $direction{chr($event->key_sym)} );
       }
       elsif ( $event->key_sym == ord( "\e" ) ) {
         die "normal exit";
       }
     }
-  }
-
-  if ( $viewport_velocity[0] > 0 ) {
-    $viewport_origin[0] += $viewport_velocity[0];
   }
 }
 
@@ -198,7 +201,7 @@ sub update_game {
 
 sub put_image {
   $ghd->draw_bounding_box(
-    coordinate => \@actor,
+    coordinate => $vp->cursor,
     surface => $app,
     color => SDL::Video::map_RGBA( $app->format(), 255, 0, 0, 255 )
   );
@@ -213,7 +216,7 @@ sub put_image {
 #    color => SDL::Video::map_RGBA( $action->format(), 255, 0, 0, 127 )
 #  );
   $ghd->draw_actor(
-    coordinate => \@actor,
+    coordinate => $vp->cursor,
     surface => $app,
     color => SDL::Video::map_RGBA( $app->format(), 0, 0, 255, 127 )
   );

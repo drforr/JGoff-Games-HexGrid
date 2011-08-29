@@ -2,7 +2,6 @@ package JGoff::Games::HexGrid;
 
 use Moose;
 
-has origin => ( is => 'rw', isa => 'ArrayRef' );
 has cells => ( is => 'rw', isa => 'ArrayRef' );
 has cell_size => ( is => 'rw', isa => 'ArrayRef' );
 
@@ -22,11 +21,9 @@ sub _bounding_box {
 
   my @center = (
     $coordinate[0] * $self->cell_size->[0] +
-    $self->cell_size->[0] * 0.5 +
-    $self->origin->[0],
+    $self->cell_size->[0] * 0.5,
     $coordinate[1] * $self->cell_size->[1] * 0.75 +
-    $self->cell_size->[1] * 0.5 +
-    $self->origin->[1]
+    $self->cell_size->[1] * 0.5
   );
   $center[0] += $self->cell_size->[0] * 0.5 if $coordinate[1] % 2;
 
@@ -55,8 +52,8 @@ sub _hexagon {
   return if $coordinate[1] < 0;
 
   my @origin = (
-    $coordinate[0] * $self->cell_size->[0] + $self->origin->[0],
-    $coordinate[1] * $self->cell_size->[1] * 0.75 + $self->origin->[1]
+    $coordinate[0] * $self->cell_size->[0],
+    $coordinate[1] * $self->cell_size->[1] * 0.75
   );
   $origin[0] += $self->cell_size->[0] * 0.5 if $coordinate[1] % 2;
 

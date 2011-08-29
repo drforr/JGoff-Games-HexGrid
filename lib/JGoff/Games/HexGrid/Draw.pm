@@ -1,7 +1,7 @@
 package JGoff::Games::HexGrid::Draw;
 
 use SDL; # XXX Excise later
-use Carp qw(croak );
+use Carp qw( croak );
 
 use Moose;
 extends 'JGoff::Games::HexGrid';
@@ -156,11 +156,9 @@ sub draw_actor {
 
   my @center = (
     $coordinate[0] * $self->cell_size->[0] +
-    $self->cell_size->[0] * 0.5 +
-    $self->origin->[0],
+    $self->cell_size->[0] * 0.5,
     $coordinate[1] * $self->cell_size->[1] * 0.75 +
-    $self->cell_size->[1] * 0.5 +
-    $self->origin->[1]
+    $self->cell_size->[1] * 0.5,
   );
   $center[0] += $self->cell_size->[0] * 0.5 if $coordinate[1] % 2;
 
@@ -193,7 +191,6 @@ sub draw {
   my $surface = $args{surface};
   my $color = $args{color};
 
-  my @origin = @{ $self->origin };
   my @cells = @{ $self->cells };
   my @cell_size = @{ $self->cell_size };
   
@@ -204,19 +201,19 @@ sub draw {
   my @top_border =
     (
       [
-        $origin[0],
-        $cell_size[1] * 0.25 + $origin[1],
+        0,
+        $cell_size[1] * 0.25
       ]
     );
   for my $x ( 0 .. $cells[0] - 1 ) {
     push @top_border, (
       [
-        $x * $cell_size[0] + $cell_size[0] * 0.5 + $origin[0],
-        $origin[1],
+        $x * $cell_size[0] + $cell_size[0] * 0.5,
+        0,
       ],
       [
-        ( $x + 1 ) * $cell_size[0] + $origin[0],
-        $cell_size[1] * 0.25 + $origin[1],
+        ( $x + 1 ) * $cell_size[0],
+        $cell_size[1] * 0.25
       ]
     );
   }
@@ -227,14 +224,15 @@ sub draw {
 
   my @bottom_border = ();
   for my $x ( 0 .. $cells[0] - 1 ) {
+    my $top = $cells[1] * $cell_size[1] * 0.75;
     push @bottom_border, (
       [
-        $x * $cell_size[0] + $cell_size [0] * 0.5 + $origin[0],
-        ( $cells[1] * $cell_size[1] * 0.75 ) + $origin[1],
+        $x * $cell_size[0] + $cell_size [0] * 0.5,
+        $top
       ],
       [
-        ( $x + 1 ) * $cell_size[0] + $origin[0],
-        ( $cells[1] * $cell_size[1] * 0.75 ) + $cell_size[1] * 0.25 + $origin[1],
+        ( $x + 1 ) * $cell_size[0],
+        $top + $cell_size[1] * 0.25
       ],
     );
   }
@@ -253,26 +251,28 @@ sub draw {
   );
 
   for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
+    my $top = $y * $cell_size[1] * 1.5;
+    my $bottom = ( $y + 1 ) * $cell_size[1] * 1.5;
     push @right_border, (
       [
-        $cells[0] * $cell_size[0] + $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.25 + $origin[1],
+        $cells[0] * $cell_size[0],
+        $top + $cell_size[1] * 0.25
       ],
       [
-        $cells[0] * $cell_size[0] + $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.75 + $origin[1],
+        $cells[0] * $cell_size[0],
+        $top + $cell_size[1] * 0.75
       ],
       [
-        $cells[0] * $cell_size[0] + $cell_size[0] * 0.5 + $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] + $origin[1],
+        $cells[0] * $cell_size[0] + $cell_size[0] * 0.5,
+        $top + $cell_size[1]
       ],
       [
-        $cells[0] * $cell_size[0] + $cell_size[0] * 0.5 + $origin[0],
-        ( ( $y + 1 ) * $cell_size[1] * 1.5 ) + $origin[1],
+        $cells[0] * $cell_size[0] + $cell_size[0] * 0.5,
+        $bottom
       ],
       [
-        $cells[0] * $cell_size[0] + $origin[0],
-        ( ( $y + 1 ) * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.25 + $origin[1],
+        $cells[0] * $cell_size[0],
+        $bottom + $cell_size[1] * 0.25
       ],
     )
   }
@@ -281,26 +281,28 @@ sub draw {
   );
 
   for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
+    my $top = $y * $cell_size[1] * 1.5;
+    my $bottom = ( $y + 1 ) * $cell_size[1] * 1.5;
     push @left_border, (
       [
-        $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.25 + $origin[1],
+        0,
+        $top + $cell_size[1] * 0.25
       ],
       [
-        $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.75 + $origin[1],
+        0,
+        $top + $cell_size[1] * 0.75
       ],
       [
-        $cell_size[0] * 0.5 + $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] + $origin[1],
+        $cell_size[0] * 0.5,
+        $top + $cell_size[1]
       ],
       [
-        $cell_size[0] * 0.5 + $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 1.5 + $origin[1],
+        $cell_size[0] * 0.5,
+        $bottom
       ],
       [
-        $origin[0],
-        ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 1.75 + $origin[1],
+        0,
+        $bottom + $cell_size[1] * 0.25
       ],
     )
   }
@@ -318,18 +320,20 @@ sub draw {
 
   for my $x ( 0 .. $cells[0] - 1 ) {
     for my $y ( 0 .. int( ( $cells[1] - 1 ) / 2 ) ) {
+      my $top = $y * $cell_size[1] * 1.5;
+      my $bottom = ( $y + 1 ) * $cell_size[1] * 1.5;
       my @points = (
         [
-          ( ( $x + 1 ) * $cell_size[0] ) + $origin[0],
-          ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.25 + $origin[1]
+          ( $x + 1 ) * $cell_size[0],
+          $top + $cell_size[1] * 0.25
         ],
         [
-          ( ( $x + 1 ) * $cell_size[0] ) + $origin[0],
-          ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.75 + $origin[1]
+          ( $x + 1 ) * $cell_size[0],
+          $top + $cell_size[1] * 0.75
         ],
         [
-          ( $x * $cell_size[0] ) + $cell_size[0] * 0.5 + $origin[0],
-          ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] + $origin[1]
+          ( $x * $cell_size[0] ) + $cell_size[0] * 0.5,
+          $top + $cell_size[1]
         ],
       );
       $self->_bresenham_polyline(
@@ -339,24 +343,24 @@ sub draw {
       );
       @points = (
         [
-          ( ( $x + 1 ) * $cell_size[0] ) + $origin[0],
-          ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.75 + $origin[1]
+          ( $x + 1 ) * $cell_size[0],
+          $top + $cell_size[1] * 0.75
         ],
         [
-          ( $x * $cell_size[0] ) + $cell_size[0] * 1.5 + $origin[0],
-          ( $y * $cell_size[1] * 1.5 ) + $cell_size[1] + $origin[1]
+          ( $x * $cell_size[0] ) + $cell_size[0] * 1.5,
+          $top + $cell_size[1]
         ],
         [
-          ( $x * $cell_size[0] ) + $cell_size[0] * 1.5 + $origin[0],
-          ( ( $y + 1 ) * $cell_size[1] * 1.5 ) + $origin[1]
+          ( $x * $cell_size[0] ) + $cell_size[0] * 1.5,
+          $bottom
         ],
         [
-          ( $x * $cell_size[0] ) + $cell_size[0] + $origin[0],
-          ( ( $y + 1 ) * $cell_size[1] * 1.5 ) + $cell_size[1] * 0.25 + $origin[1]
+          ( $x * $cell_size[0] ) + $cell_size[0],
+          $bottom + $cell_size[1] * 0.25
         ],
         [
-          ( $x * $cell_size[0] ) + $cell_size[0] * 0.5 + $origin[0],
-          ( ( $y + 1 ) * $cell_size[1] * 1.5 ) + $origin[1]
+          ( $x * $cell_size[0] ) + $cell_size[0] * 0.5,
+          $bottom
         ],
       );
       $self->_bresenham_polyline(
